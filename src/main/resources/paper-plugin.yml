@@ -1,0 +1,4 @@
+name: AdvanceInvis
+version: ${project.version}
+main: net.thanachot.AdvanceInvis.AdvanceInvis
+api-version: '1.21'
