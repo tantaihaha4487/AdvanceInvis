@@ -15,6 +15,14 @@ public class AdvanceInvis extends JavaPlugin implements Listener {
 
     private static NamespacedKey ADV_INVIS_KEY;
 
+    public static AdvanceInvis getInstance() {
+        return JavaPlugin.getPlugin(AdvanceInvis.class);
+    }
+
+    public static NamespacedKey getADV_INVIS_KEY() {
+        return ADV_INVIS_KEY;
+    }
+
     @Override
     public void onEnable() {
         getLogger().info("AdvanceInvis Enabled!");
@@ -75,13 +83,5 @@ public class AdvanceInvis extends JavaPlugin implements Listener {
             // Set the new message
             event.deathMessage(Component.text(newMsg, NamedTextColor.RED));
         }
-    }
-
-    public static AdvanceInvis getInstance() {
-        return JavaPlugin.getPlugin(AdvanceInvis.class);
-    }
-
-    public static NamespacedKey getADV_INVIS_KEY() {
-        return ADV_INVIS_KEY;
     }
 }
