@@ -33,8 +33,14 @@ public class BrewListener implements Listener {
         ItemStack potion = new ItemStack(material);
         PotionMeta meta = (PotionMeta) potion.getItemMeta();
 
-        meta.addCustomEffect(new PotionEffect(PotionEffectType.INVISIBILITY, durationSeconds * 20, 0), true);
-        meta.setBasePotionType(PotionType.INVISIBILITY);
+        // Fix Duplicate Data: Do not add custom effect. Rely on BasePotionType.
+        // meta.addCustomEffect(new PotionEffect(PotionEffectType.INVISIBILITY, durationSeconds * 20, 0), true);
+
+        if (durationSeconds > 180) { // Assume > 3:00 means Long
+             meta.setBasePotionType(PotionType.LONG_INVISIBILITY);
+        } else {
+             meta.setBasePotionType(PotionType.INVISIBILITY);
+        }
 
         String name = "Advance Invisible Potion";
         if (material == Material.SPLASH_POTION) name = "Advance Invisible Splash Potion";
@@ -68,6 +74,12 @@ public class BrewListener implements Listener {
                 if (potion == null || potion.getType() == Material.AIR) continue;
 
                 if (potion.getItemMeta() instanceof PotionMeta meta) {
+                    // Fix Re-brewing Loop: Check if already advanced
+                    if (meta.getPersistentDataContainer().has(AdvanceInvis.getADV_INVIS_KEY(), PersistentDataType.INTEGER)) {
+                        results.set(i, potion); // Keep original, do not re-brew
+                        continue;
+                    }
+
                     if (meta.getBasePotionType() == PotionType.INVISIBILITY || meta.getBasePotionType() == PotionType.LONG_INVISIBILITY) {
 
                         int duration = 180; // 3:00 default
