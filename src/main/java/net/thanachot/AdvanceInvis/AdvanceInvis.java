@@ -1,6 +1,7 @@
 package net.thanachot.AdvanceInvis;
 
 import net.kyori.adventure.text.Component;
+import net.kyori.adventure.text.TextReplacementConfig;
 import net.kyori.adventure.text.format.NamedTextColor;
 import net.kyori.adventure.text.serializer.plain.PlainTextComponentSerializer;
 import net.thanachot.AdvanceInvis.listener.BrewListener;
@@ -16,10 +17,11 @@ import org.bukkit.plugin.java.JavaPlugin;
 
 public class AdvanceInvis extends JavaPlugin implements Listener {
 
+    private static AdvanceInvis instance;
     private static NamespacedKey ADV_INVIS_KEY;
 
     public static AdvanceInvis getInstance() {
-        return JavaPlugin.getPlugin(AdvanceInvis.class);
+        return instance;
     }
 
     public static NamespacedKey getADV_INVIS_KEY() {
@@ -28,6 +30,7 @@ public class AdvanceInvis extends JavaPlugin implements Listener {
 
     @Override
     public void onEnable() {
+        instance = this;
         getLogger().info("AdvanceInvis Enabled!");
         ADV_INVIS_KEY = new NamespacedKey(this, "advanceinvis");
 
@@ -89,13 +92,17 @@ public class AdvanceInvis extends JavaPlugin implements Listener {
             Component originalMessage = event.deathMessage();
             if (originalMessage == null) return;
 
-            String textMsg = PlainTextComponentSerializer.plainText().serialize(originalMessage);
-            String killerName = killer.getName();
+            // Preserve formatting by using TextReplacement
+            // We want to replace the killer's name with "unknown"
+            // Note: This is case-sensitive and simple string matching on the content.
+            // For complex components, it replaces occurrences in the text nodes.
 
-            if (textMsg.contains(killerName)) {
-                String newMsg = textMsg.replace(killerName, "unknown");
-                event.deathMessage(Component.text(newMsg)); // Using default color or white, as requested "unknown"
-            }
+            Component newMessage = originalMessage.replaceText(TextReplacementConfig.builder()
+                    .matchLiteral(killer.getName())
+                    .replacement("unknown")
+                    .build());
+
+            event.deathMessage(newMessage);
         }
     }
 }
