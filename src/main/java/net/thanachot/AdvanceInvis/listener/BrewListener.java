@@ -3,10 +3,20 @@ package net.thanachot.AdvanceInvis.listener;
 import net.kyori.adventure.text.Component;
 import net.kyori.adventure.text.format.NamedTextColor;
 import net.thanachot.AdvanceInvis.AdvanceInvis;
+import net.thanachot.AdvanceInvis.manager.InvisibilityManager;
 import org.bukkit.Material;
+import org.bukkit.entity.AreaEffectCloud;
+import org.bukkit.entity.LivingEntity;
+import org.bukkit.entity.Player;
+import org.bukkit.entity.ThrownPotion;
 import org.bukkit.event.EventHandler;
 import org.bukkit.event.Listener;
+import org.bukkit.event.entity.AreaEffectCloudApplyEvent;
+import org.bukkit.event.entity.LingeringPotionSplashEvent;
+import org.bukkit.event.entity.PotionSplashEvent;
+import org.bukkit.event.entity.ProjectileLaunchEvent;
 import org.bukkit.event.inventory.BrewEvent;
+import org.bukkit.event.player.PlayerItemConsumeEvent;
 import org.bukkit.inventory.BrewerInventory;
 import org.bukkit.inventory.ItemStack;
 import org.bukkit.inventory.meta.PotionMeta;
@@ -17,21 +27,31 @@ import java.util.List;
 
 public class BrewListener implements Listener {
 
-    public static ItemStack createAdvancedInvisPotion(boolean isSplash) {
-        ItemStack potion = new ItemStack(isSplash ? Material.SPLASH_POTION : Material.POTION);
+    public static ItemStack createAdvancedInvisPotion(Material material, int durationSeconds) {
+        ItemStack potion = new ItemStack(material);
         PotionMeta meta = (PotionMeta) potion.getItemMeta();
 
-        // Base visual effect (standard invisibility)
-        meta.setBasePotionType(PotionType.INVISIBILITY);
+        if (durationSeconds > 180) { // Assume > 3:00 means Long
+             meta.setBasePotionType(PotionType.LONG_INVISIBILITY);
+        } else {
+             meta.setBasePotionType(PotionType.INVISIBILITY);
+        }
 
-        // Custom Name and Lore
-        meta.displayName(Component.text("Advanced Invisibility").color(NamedTextColor.DARK_PURPLE));
+        String name = "Advance Invisible Potion";
+        if (material == Material.SPLASH_POTION) name = "Advance Invisible Splash Potion";
+        else if (material == Material.LINGERING_POTION) name = "Advance Invisible Lingering Potion";
+
+        meta.displayName(Component.text(name).color(NamedTextColor.DARK_PURPLE));
+
+        String timeString = String.format("%d:%02d", durationSeconds / 60, durationSeconds % 60);
+
         meta.lore(List.of(
                 Component.text("Masks your identity on kill.").color(NamedTextColor.GRAY),
-                Component.text("Duration: 3:00").color(NamedTextColor.GRAY)));
+                Component.text("Duration: " + timeString).color(NamedTextColor.GRAY)
+        ));
 
-        // Tag the item with persistent data so we know it's ours
-        meta.getPersistentDataContainer().set(AdvanceInvis.getADV_INVIS_KEY(), PersistentDataType.BYTE, (byte) 1);
+        // Store duration in PDC (Persistent Data Container)
+        meta.getPersistentDataContainer().set(AdvanceInvis.getADV_INVIS_KEY(), PersistentDataType.INTEGER, durationSeconds * 20);
 
         potion.setItemMeta(meta);
         return potion;
@@ -42,28 +62,103 @@ public class BrewListener implements Listener {
         BrewerInventory inv = event.getContents();
         ItemStack ingredient = inv.getIngredient();
 
-        // Recipe: Phantom Membrane + Potion of Invisibility = Advanced Invis
-        if (ingredient != null && ingredient.getType() == Material.PHANTOM_MEMBRANE) {
-
+        if (ingredient != null && ingredient.getType() == Material.DIAMOND) {
             List<ItemStack> results = event.getResults();
             for (int i = 0; i < 3; i++) {
                 ItemStack potion = inv.getItem(i);
-                if (potion == null || potion.getType() == Material.AIR)
-                    continue;
+                if (potion == null || potion.getType() == Material.AIR) continue;
 
-                if (potion.getItemMeta() instanceof PotionMeta) {
-                    PotionMeta meta = (PotionMeta) potion.getItemMeta();
-                    // Check if the source was a standard Potion of Invisibility (Long or Normal)
-                    if (meta.getBasePotionType() == PotionType.INVISIBILITY
-                            || meta.getBasePotionType() == PotionType.LONG_INVISIBILITY) {
-                        boolean isSplash = potion.getType() == Material.SPLASH_POTION;
-                        // Ensure the result is our custom potion
-                        results.set(i, createAdvancedInvisPotion(isSplash));
+                if (potion.getItemMeta() instanceof PotionMeta meta) {
+                    // Fix Re-brewing Loop: Check if already advanced
+                    if (meta.getPersistentDataContainer().has(AdvanceInvis.getADV_INVIS_KEY(), PersistentDataType.INTEGER)) {
+                        results.set(i, potion); // Keep original, do not re-brew
+                        continue;
+                    }
+
+                    if (meta.getBasePotionType() == PotionType.INVISIBILITY || meta.getBasePotionType() == PotionType.LONG_INVISIBILITY) {
+
+                        int duration = 180; // 3:00 default
+                        if (meta.getBasePotionType() == PotionType.LONG_INVISIBILITY) {
+                            duration = 480; // 8:00 Long
+                        }
+
+                        // Inherit type (Drinkable, Splash, Lingering)
+                        Material newType = potion.getType();
+                        results.set(i, createAdvancedInvisPotion(newType, duration));
                     } else {
-                        // If the input was NOT invisibility, but the recipe triggered (due to broad
-                        // PotionMix),
-                        // we must revert the result to the original item so it doesn't change.
+                        // Keep original if not an invisibility potion
                         results.set(i, potion);
+                    }
+                }
+            }
+        }
+    }
+
+    @EventHandler
+    public void onConsume(PlayerItemConsumeEvent event) {
+        ItemStack item = event.getItem();
+        if (item.hasItemMeta() && item.getItemMeta().getPersistentDataContainer().has(AdvanceInvis.getADV_INVIS_KEY(), PersistentDataType.INTEGER)) {
+            Integer durationTicks = item.getItemMeta().getPersistentDataContainer().get(AdvanceInvis.getADV_INVIS_KEY(), PersistentDataType.INTEGER);
+            if (durationTicks != null) {
+                InvisibilityManager.getInstance().addInvisiblePlayer(event.getPlayer(), durationTicks);
+            }
+        }
+    }
+
+    @EventHandler
+    public void onLaunch(ProjectileLaunchEvent event) {
+        if (event.getEntity() instanceof ThrownPotion potion) {
+            ItemStack item = potion.getItem();
+            if (item.hasItemMeta() && item.getItemMeta().getPersistentDataContainer().has(AdvanceInvis.getADV_INVIS_KEY(), PersistentDataType.INTEGER)) {
+                Integer duration = item.getItemMeta().getPersistentDataContainer().get(AdvanceInvis.getADV_INVIS_KEY(), PersistentDataType.INTEGER);
+                if (duration != null) {
+                    // Pass data from Item to Projectile
+                    potion.getPersistentDataContainer().set(AdvanceInvis.getADV_INVIS_KEY(), PersistentDataType.INTEGER, duration);
+                }
+            }
+        }
+    }
+
+    @EventHandler
+    public void onSplash(PotionSplashEvent event) {
+        ThrownPotion potion = event.getPotion();
+        if (potion.getPersistentDataContainer().has(AdvanceInvis.getADV_INVIS_KEY(), PersistentDataType.INTEGER)) {
+            Integer durationTicks = potion.getPersistentDataContainer().get(AdvanceInvis.getADV_INVIS_KEY(), PersistentDataType.INTEGER);
+            if (durationTicks != null) {
+                for (LivingEntity entity : event.getAffectedEntities()) {
+                    if (entity instanceof Player player) {
+                        InvisibilityManager.getInstance().addInvisiblePlayer(player, durationTicks);
+                    }
+                }
+            }
+        }
+    }
+
+    @EventHandler
+    public void onLingeringSplash(LingeringPotionSplashEvent event) {
+        ThrownPotion potion = event.getEntity();
+        AreaEffectCloud cloud = event.getAreaEffectCloud();
+
+        if (potion.getPersistentDataContainer().has(AdvanceInvis.getADV_INVIS_KEY(), PersistentDataType.INTEGER)) {
+            Integer durationTicks = potion.getPersistentDataContainer().get(AdvanceInvis.getADV_INVIS_KEY(), PersistentDataType.INTEGER);
+            if (durationTicks != null) {
+                // Pass data from Projectile to Cloud
+                cloud.getPersistentDataContainer().set(AdvanceInvis.getADV_INVIS_KEY(), PersistentDataType.INTEGER, durationTicks);
+            }
+        }
+    }
+
+    @EventHandler
+    public void onCloudApply(AreaEffectCloudApplyEvent event) {
+        AreaEffectCloud cloud = event.getEntity();
+        if (cloud.getPersistentDataContainer().has(AdvanceInvis.getADV_INVIS_KEY(), PersistentDataType.INTEGER)) {
+            Integer durationTicks = cloud.getPersistentDataContainer().get(AdvanceInvis.getADV_INVIS_KEY(), PersistentDataType.INTEGER);
+            if (durationTicks != null) {
+                // For lingering, the effect is re-applied frequently while standing in it.
+                // We should refresh the duration for players.
+                for (LivingEntity entity : event.getAffectedEntities()) {
+                    if (entity instanceof Player player) {
+                        InvisibilityManager.getInstance().addInvisiblePlayer(player, durationTicks);
                     }
                 }
             }
