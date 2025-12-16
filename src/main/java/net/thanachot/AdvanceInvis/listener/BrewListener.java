@@ -21,8 +21,6 @@ import org.bukkit.inventory.BrewerInventory;
 import org.bukkit.inventory.ItemStack;
 import org.bukkit.inventory.meta.PotionMeta;
 import org.bukkit.persistence.PersistentDataType;
-import org.bukkit.potion.PotionEffect;
-import org.bukkit.potion.PotionEffectType;
 import org.bukkit.potion.PotionType;
 
 import java.util.List;
@@ -32,9 +30,6 @@ public class BrewListener implements Listener {
     public static ItemStack createAdvancedInvisPotion(Material material, int durationSeconds) {
         ItemStack potion = new ItemStack(material);
         PotionMeta meta = (PotionMeta) potion.getItemMeta();
-
-        // Fix Duplicate Data: Do not add custom effect. Rely on BasePotionType.
-        // meta.addCustomEffect(new PotionEffect(PotionEffectType.INVISIBILITY, durationSeconds * 20, 0), true);
 
         if (durationSeconds > 180) { // Assume > 3:00 means Long
              meta.setBasePotionType(PotionType.LONG_INVISIBILITY);

@@ -13,7 +13,12 @@ import org.bukkit.event.EventHandler;
 import org.bukkit.event.Listener;
 import org.bukkit.event.entity.PlayerDeathEvent;
 import org.bukkit.inventory.ItemStack;
+import org.bukkit.inventory.RecipeChoice;
+import org.bukkit.inventory.meta.PotionMeta;
 import org.bukkit.plugin.java.JavaPlugin;
+import org.bukkit.potion.PotionType;
+
+import java.util.List;
 
 public class AdvanceInvis extends JavaPlugin implements Listener {
 
@@ -43,14 +48,40 @@ public class AdvanceInvis extends JavaPlugin implements Listener {
         registerRecipes();
     }
 
+    private ItemStack createBasePotion(Material material, PotionType type) {
+        ItemStack stack = new ItemStack(material);
+        PotionMeta meta = (PotionMeta) stack.getItemMeta();
+        meta.setBasePotionType(type);
+        stack.setItemMeta(meta);
+        return stack;
+    }
+
     private void registerRecipes() {
+        // Create strict inputs (Vanilla Invisibility Only)
+        // This prevents "Advance Invisible Potion" (which has extra NBT) from being accepted.
+
+        // Drinkable Inputs
+        ItemStack drinkableNormal = createBasePotion(Material.POTION, PotionType.INVISIBILITY);
+        ItemStack drinkableLong = createBasePotion(Material.POTION, PotionType.LONG_INVISIBILITY);
+        RecipeChoice.ExactChoice drinkableInput = new RecipeChoice.ExactChoice(List.of(drinkableNormal, drinkableLong));
+
+        // Splash Inputs
+        ItemStack splashNormal = createBasePotion(Material.SPLASH_POTION, PotionType.INVISIBILITY);
+        ItemStack splashLong = createBasePotion(Material.SPLASH_POTION, PotionType.LONG_INVISIBILITY);
+        RecipeChoice.ExactChoice splashInput = new RecipeChoice.ExactChoice(List.of(splashNormal, splashLong));
+
+        // Lingering Inputs
+        ItemStack lingeringNormal = createBasePotion(Material.LINGERING_POTION, PotionType.INVISIBILITY);
+        ItemStack lingeringLong = createBasePotion(Material.LINGERING_POTION, PotionType.LONG_INVISIBILITY);
+        RecipeChoice.ExactChoice lingeringInput = new RecipeChoice.ExactChoice(List.of(lingeringNormal, lingeringLong));
+
         // Register PotionMix for Drinkable Potions
         NamespacedKey drinkableKey = new NamespacedKey(this, "advanced_invis_drinkable");
         ItemStack drinkableResult = BrewListener.createAdvancedInvisPotion(Material.POTION, 180);
         io.papermc.paper.potion.PotionMix drinkableMix = new io.papermc.paper.potion.PotionMix(
                 drinkableKey,
                 drinkableResult,
-                new org.bukkit.inventory.RecipeChoice.MaterialChoice(Material.POTION),
+                drinkableInput,
                 new org.bukkit.inventory.RecipeChoice.MaterialChoice(Material.DIAMOND));
         getServer().getPotionBrewer().addPotionMix(drinkableMix);
 
@@ -60,7 +91,7 @@ public class AdvanceInvis extends JavaPlugin implements Listener {
         io.papermc.paper.potion.PotionMix splashMix = new io.papermc.paper.potion.PotionMix(
                 splashKey,
                 splashResult,
-                new org.bukkit.inventory.RecipeChoice.MaterialChoice(Material.SPLASH_POTION),
+                splashInput,
                 new org.bukkit.inventory.RecipeChoice.MaterialChoice(Material.DIAMOND));
         getServer().getPotionBrewer().addPotionMix(splashMix);
 
@@ -70,7 +101,7 @@ public class AdvanceInvis extends JavaPlugin implements Listener {
         io.papermc.paper.potion.PotionMix lingeringMix = new io.papermc.paper.potion.PotionMix(
                 lingeringKey,
                 lingeringResult,
-                new org.bukkit.inventory.RecipeChoice.MaterialChoice(Material.LINGERING_POTION),
+                lingeringInput,
                 new org.bukkit.inventory.RecipeChoice.MaterialChoice(Material.DIAMOND));
         getServer().getPotionBrewer().addPotionMix(lingeringMix);
     }
@@ -93,10 +124,6 @@ public class AdvanceInvis extends JavaPlugin implements Listener {
             if (originalMessage == null) return;
 
             // Preserve formatting by using TextReplacement
-            // We want to replace the killer's name with "unknown"
-            // Note: This is case-sensitive and simple string matching on the content.
-            // For complex components, it replaces occurrences in the text nodes.
-
             Component newMessage = originalMessage.replaceText(TextReplacementConfig.builder()
                     .matchLiteral(killer.getName())
                     .replacement("unknown")
