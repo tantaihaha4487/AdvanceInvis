@@ -1,7 +1,4 @@
 <p align="center">
-
-# ⚠️ This project is under development ⚠️
-
   <!-- <a href="https://github.com/tantaihaha4487/AdvanceInvis/actions/workflows/build-plugin.yml" style="text-decoration:none;"><img src="https://github.com/tantaihaha4487/AdvanceInvis/actions/workflows/build-plugin.yml/badge.svg" alt="Build Status"></a> -->
   <!-- <a href="https://github.com/tantaihaha4487/AdvanceInvis/releases/latest" style="text-decoration:none;"><img src="https://img.shields.io/github/v/release/tantaihaha4487/AdvanceInvis?style=flat-square" alt="Latest Release"></a> -->
   <!-- <a href="https://modrinth.com/plugin/advanceinvis" style="text-decoration:none;"><img src="https://img.shields.io/modrinth/dt/advanceinvis?color=00AF5C&logo=modrinth&label=Modrinth&style=flat-square" alt="Modrinth Downloads"></a> -->
