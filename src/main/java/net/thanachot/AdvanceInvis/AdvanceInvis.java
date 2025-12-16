@@ -4,11 +4,14 @@ import net.kyori.adventure.text.Component;
 import net.kyori.adventure.text.format.NamedTextColor;
 import net.kyori.adventure.text.serializer.plain.PlainTextComponentSerializer;
 import net.thanachot.AdvanceInvis.listener.BrewListener;
+import net.thanachot.AdvanceInvis.manager.InvisibilityManager;
+import org.bukkit.Material;
 import org.bukkit.NamespacedKey;
 import org.bukkit.entity.Player;
 import org.bukkit.event.EventHandler;
 import org.bukkit.event.Listener;
 import org.bukkit.event.entity.PlayerDeathEvent;
+import org.bukkit.inventory.ItemStack;
 import org.bukkit.plugin.java.JavaPlugin;
 
 public class AdvanceInvis extends JavaPlugin implements Listener {
@@ -27,33 +30,51 @@ public class AdvanceInvis extends JavaPlugin implements Listener {
     public void onEnable() {
         getLogger().info("AdvanceInvis Enabled!");
         ADV_INVIS_KEY = new NamespacedKey(this, "advanceinvis");
+
+        // Initialize Manager (starts cleanup task)
+        InvisibilityManager.getInstance();
+
         getServer().getPluginManager().registerEvents(this, this);
         getServer().getPluginManager().registerEvents(new BrewListener(), this);
 
+        registerRecipes();
+    }
+
+    private void registerRecipes() {
         // Register PotionMix for Drinkable Potions
         NamespacedKey drinkableKey = new NamespacedKey(this, "advanced_invis_drinkable");
-        org.bukkit.inventory.ItemStack drinkableResult = BrewListener.createAdvancedInvisPotion(false);
+        ItemStack drinkableResult = BrewListener.createAdvancedInvisPotion(Material.POTION, 180);
         io.papermc.paper.potion.PotionMix drinkableMix = new io.papermc.paper.potion.PotionMix(
                 drinkableKey,
                 drinkableResult,
-                new org.bukkit.inventory.RecipeChoice.MaterialChoice(org.bukkit.Material.POTION),
-                new org.bukkit.inventory.RecipeChoice.MaterialChoice(org.bukkit.Material.PHANTOM_MEMBRANE));
+                new org.bukkit.inventory.RecipeChoice.MaterialChoice(Material.POTION),
+                new org.bukkit.inventory.RecipeChoice.MaterialChoice(Material.DIAMOND));
         getServer().getPotionBrewer().addPotionMix(drinkableMix);
 
         // Register PotionMix for Splash Potions
         NamespacedKey splashKey = new NamespacedKey(this, "advanced_invis_splash");
-        org.bukkit.inventory.ItemStack splashResult = BrewListener.createAdvancedInvisPotion(true);
+        ItemStack splashResult = BrewListener.createAdvancedInvisPotion(Material.SPLASH_POTION, 180);
         io.papermc.paper.potion.PotionMix splashMix = new io.papermc.paper.potion.PotionMix(
                 splashKey,
                 splashResult,
-                new org.bukkit.inventory.RecipeChoice.MaterialChoice(org.bukkit.Material.SPLASH_POTION),
-                new org.bukkit.inventory.RecipeChoice.MaterialChoice(org.bukkit.Material.PHANTOM_MEMBRANE));
+                new org.bukkit.inventory.RecipeChoice.MaterialChoice(Material.SPLASH_POTION),
+                new org.bukkit.inventory.RecipeChoice.MaterialChoice(Material.DIAMOND));
         getServer().getPotionBrewer().addPotionMix(splashMix);
+
+        // Register PotionMix for Lingering Potions
+        NamespacedKey lingeringKey = new NamespacedKey(this, "advanced_invis_lingering");
+        ItemStack lingeringResult = BrewListener.createAdvancedInvisPotion(Material.LINGERING_POTION, 180);
+        io.papermc.paper.potion.PotionMix lingeringMix = new io.papermc.paper.potion.PotionMix(
+                lingeringKey,
+                lingeringResult,
+                new org.bukkit.inventory.RecipeChoice.MaterialChoice(Material.LINGERING_POTION),
+                new org.bukkit.inventory.RecipeChoice.MaterialChoice(Material.DIAMOND));
+        getServer().getPotionBrewer().addPotionMix(lingeringMix);
     }
 
     @Override
     public void onDisable() {
-
+        // Cleanup if needed
     }
 
     @EventHandler
@@ -61,27 +82,20 @@ public class AdvanceInvis extends JavaPlugin implements Listener {
         Player victim = event.getEntity();
         Player killer = victim.getKiller();
 
-        // If there is no killer, or the killer is the victim (suicide), ignore
-        if (killer == null || killer.equals(victim))
-            return;
+        if (killer == null) return;
 
-        Component originalMessage = event.deathMessage();
-        if (originalMessage == null)
-            return;
+        // Check if killer is masked
+        if (InvisibilityManager.getInstance().isPlayerInvisible(killer)) {
+            Component originalMessage = event.deathMessage();
+            if (originalMessage == null) return;
 
-        // Convert component to plain text to do a simple string replacement
-        // In a production plugin, you should manipulate the Component directly to
-        // preserve formatting.
-        String textMsg = PlainTextComponentSerializer.plainText().serialize(originalMessage);
+            String textMsg = PlainTextComponentSerializer.plainText().serialize(originalMessage);
+            String killerName = killer.getName();
 
-        String killerName = killer.getName();
-
-        // Replace Killer's name with "Unknown"
-        if (textMsg.contains(killerName)) {
-            String newMsg = textMsg.replace(killerName, "Unknown");
-
-            // Set the new message
-            event.deathMessage(Component.text(newMsg, NamedTextColor.RED));
+            if (textMsg.contains(killerName)) {
+                String newMsg = textMsg.replace(killerName, "unknown");
+                event.deathMessage(Component.text(newMsg)); // Using default color or white, as requested "unknown"
+            }
         }
     }
 }
