@@ -1,10 +1,10 @@
 package net.thanachot.AdvanceInvis;
 
 import net.kyori.adventure.text.Component;
+import net.kyori.adventure.text.TextReplacementConfig;
 import net.kyori.adventure.text.format.NamedTextColor;
 import net.kyori.adventure.text.serializer.plain.PlainTextComponentSerializer;
 import net.thanachot.AdvanceInvis.listener.BrewListener;
-import net.thanachot.AdvanceInvis.listener.PlayerListener;
 import net.thanachot.AdvanceInvis.manager.InvisibilityManager;
 import org.bukkit.Material;
 import org.bukkit.NamespacedKey;
@@ -17,10 +17,11 @@ import org.bukkit.plugin.java.JavaPlugin;
 
 public class AdvanceInvis extends JavaPlugin implements Listener {
 
+    private static AdvanceInvis instance;
     private static NamespacedKey ADV_INVIS_KEY;
 
     public static AdvanceInvis getInstance() {
-        return JavaPlugin.getPlugin(AdvanceInvis.class);
+        return instance;
     }
 
     public static NamespacedKey getADV_INVIS_KEY() {
@@ -29,14 +30,15 @@ public class AdvanceInvis extends JavaPlugin implements Listener {
 
     @Override
     public void onEnable() {
+        instance = this;
         getLogger().info("AdvanceInvis Enabled!");
         ADV_INVIS_KEY = new NamespacedKey(this, "advanceinvis");
 
         // Initialize Manager (starts cleanup task)
         InvisibilityManager.getInstance();
 
+        getServer().getPluginManager().registerEvents(this, this);
         getServer().getPluginManager().registerEvents(new BrewListener(), this);
-        getServer().getPluginManager().registerEvents(new PlayerListener(), this);
 
         registerRecipes();
     }
@@ -76,5 +78,31 @@ public class AdvanceInvis extends JavaPlugin implements Listener {
     @Override
     public void onDisable() {
         // Cleanup if needed
+    }
+
+    @EventHandler
+    public void onDeath(PlayerDeathEvent event) {
+        Player victim = event.getEntity();
+        Player killer = victim.getKiller();
+
+        if (killer == null) return;
+
+        // Check if killer is masked
+        if (InvisibilityManager.getInstance().isPlayerInvisible(killer)) {
+            Component originalMessage = event.deathMessage();
+            if (originalMessage == null) return;
+
+            // Preserve formatting by using TextReplacement
+            // We want to replace the killer's name with "unknown"
+            // Note: This is case-sensitive and simple string matching on the content.
+            // For complex components, it replaces occurrences in the text nodes.
+
+            Component newMessage = originalMessage.replaceText(TextReplacementConfig.builder()
+                    .matchLiteral(killer.getName())
+                    .replacement("unknown")
+                    .build());
+
+            event.deathMessage(newMessage);
+        }
     }
 }
