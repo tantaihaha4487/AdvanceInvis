@@ -4,6 +4,7 @@ import net.kyori.adventure.text.Component;
 import net.kyori.adventure.text.format.NamedTextColor;
 import net.kyori.adventure.text.serializer.plain.PlainTextComponentSerializer;
 import net.thanachot.AdvanceInvis.listener.BrewListener;
+import net.thanachot.AdvanceInvis.listener.PlayerListener;
 import net.thanachot.AdvanceInvis.manager.InvisibilityManager;
 import org.bukkit.Material;
 import org.bukkit.NamespacedKey;
@@ -34,8 +35,8 @@ public class AdvanceInvis extends JavaPlugin implements Listener {
         // Initialize Manager (starts cleanup task)
         InvisibilityManager.getInstance();
 
-        getServer().getPluginManager().registerEvents(this, this);
         getServer().getPluginManager().registerEvents(new BrewListener(), this);
+        getServer().getPluginManager().registerEvents(new PlayerListener(), this);
 
         registerRecipes();
     }
@@ -75,27 +76,5 @@ public class AdvanceInvis extends JavaPlugin implements Listener {
     @Override
     public void onDisable() {
         // Cleanup if needed
-    }
-
-    @EventHandler
-    public void onDeath(PlayerDeathEvent event) {
-        Player victim = event.getEntity();
-        Player killer = victim.getKiller();
-
-        if (killer == null) return;
-
-        // Check if killer is masked
-        if (InvisibilityManager.getInstance().isPlayerInvisible(killer)) {
-            Component originalMessage = event.deathMessage();
-            if (originalMessage == null) return;
-
-            String textMsg = PlainTextComponentSerializer.plainText().serialize(originalMessage);
-            String killerName = killer.getName();
-
-            if (textMsg.contains(killerName)) {
-                String newMsg = textMsg.replace(killerName, "unknown");
-                event.deathMessage(Component.text(newMsg)); // Using default color or white, as requested "unknown"
-            }
-        }
     }
 }
